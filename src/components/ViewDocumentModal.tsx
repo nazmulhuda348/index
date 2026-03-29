@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from 'motion/react';
 import html2pdf from 'html2pdf.js';
 import { DocumentRecord } from '../types';
 
+// 🔴 doc এর জায়গায় document করা হয়েছে 🔴
 interface ViewDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  doc: DocumentRecord | null;
+  document: DocumentRecord | null; 
 }
 
-export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocumentModalProps) {
+// 🔴 document প্রপসটি রিসিভ করে কোডের সুবিধার জন্য সেটিকে doc ভ্যারিয়েবলে রাখা হয়েছে 🔴
+export default function ViewDocumentModal({ isOpen, onClose, document: doc }: ViewDocumentModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -27,7 +29,6 @@ export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocument
     if (!element) return;
     setIsGenerating(true);
     
-    // 🔴 TypeScript Error ফিক্স করার জন্য as '...' যুক্ত করা হয়েছে 🔴
     const opt = {
       margin: 15,
       filename: `${doc.ref_number}_Document.pdf`,
@@ -63,7 +64,6 @@ export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocument
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-4xl h-[90vh] bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
           >
-            {/* 🔴 Header: Top Bar 🔴 */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/50 z-10">
               <div className="flex items-center gap-3">
                 <span className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-lg text-xs font-bold tracking-widest uppercase border border-amber-500/20">
@@ -72,7 +72,6 @@ export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocument
                 <span className="text-slate-400 text-sm font-medium">{doc.category}</span>
               </div>
               <div className="flex items-center gap-3">
-                {/* PDF Download Button */}
                 <button
                   onClick={handleDownloadPDF}
                   disabled={isGenerating}
@@ -87,15 +86,11 @@ export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocument
               </div>
             </div>
 
-            {/* 🔴 Document Scrollable Area (A4 View) 🔴 */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-8 bg-slate-950 flex justify-center">
-              
-              {/* 📄 The Beautiful Paper View 📄 */}
               <div 
                 ref={printRef}
                 className="bg-white text-slate-900 w-full max-w-[800px] min-h-[1122px] p-10 sm:p-16 rounded-xl shadow-xl flex flex-col"
               >
-                {/* Doc Header */}
                 <div className="border-b-2 border-slate-200 pb-6 mb-8 shrink-0">
                   <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-4 font-serif leading-tight">
                     {doc.title}
@@ -108,13 +103,11 @@ export default function ViewDocumentModal({ isOpen, onClose, doc }: ViewDocument
                   </div>
                 </div>
 
-                {/* 🔴 Doc Body (Beautiful Typography rendering your HTML) 🔴 */}
                 <div 
                   className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-headings:text-slate-900 prose-a:text-blue-600 prose-table:border-collapse prose-td:border prose-td:border-slate-300 prose-th:border prose-th:border-slate-300 prose-th:bg-slate-100 font-serif text-slate-800 leading-relaxed flex-grow" 
                   dangerouslySetInnerHTML={{ __html: doc.description || '<p class="italic text-slate-400">No content provided.</p>' }}
                 />
 
-                {/* Doc Footer */}
                 <div className="mt-20 pt-8 border-t border-slate-200 shrink-0">
                   {doc.tags && doc.tags.length > 0 && (
                     <div className="flex items-center gap-2 mb-4">

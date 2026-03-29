@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from 'motion/react';
 import JoditEditor from 'jodit-react';
 import { CATEGORIES, DocumentRecord } from '../types';
 
+// 🔴 ইন্টারফেসে onSuccess এবং onAdd কে ঐচ্ছিক (?) করা হয়েছে যাতে কোনো এরর না আসে 🔴
 interface AddDocumentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (doc: any) => Promise<void>;
+  onAdd?: (doc: any) => Promise<void>;
+  onSuccess?: () => void; 
   initialData?: DocumentRecord | null;
 }
 
-export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }: AddDocumentModalProps) {
+export default function AddDocumentModal({ isOpen, onClose, onAdd, onSuccess, initialData }: AddDocumentModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
@@ -21,17 +23,15 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
   const [tags, setTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔴 নতুন Editor Modal এর জন্য State 🔴
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [tempDescription, setTempDescription] = useState('');
 
   const editorRef = useRef(null);
 
-  // Editor এর ডিজাইন কনফিগারেশন (উচ্চতা বাড়ানো হয়েছে)
   const editorConfig = useMemo(() => ({
     theme: 'dark',
     placeholder: 'Start typing your document details here...',
-    height: 500, // এডিটরের উচ্চতা ফিক্স করা হয়েছে যাতে অনেক জায়গা পাওয়া যায়
+    height: 500, 
     buttons: ['source', '|', 'bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'font', 'fontsize', 'brush', 'paragraph', '|', 'table', 'link', '|', 'align', 'undo', 'redo'],
   }), []);
 
@@ -74,14 +74,23 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
 
     setIsSubmitting(true);
     try {
-      await onAdd({
-        title,
-        description,
-        category,
-        tags,
-        file_url: fileUrl || undefined,
-        is_pinned: isPinned,
-      });
+      // যদি onAdd প্রপস থাকে তবে সেটি কল হবে
+      if (onAdd) {
+        await onAdd({
+          title,
+          description,
+          category,
+          tags,
+          file_url: fileUrl || undefined,
+          is_pinned: isPinned,
+        });
+      }
+      
+      // 🔴 সেভ হওয়ার পর onSuccess কল করা হচ্ছে 🔴
+      if (onSuccess) {
+        onSuccess();
+      }
+      
       onClose();
     } catch (error) {
       console.error('Error saving document:', error);
@@ -90,7 +99,6 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
     }
   };
 
-  // Editor Modal Save করার লজিক
   const handleSaveEditor = () => {
     setDescription(tempDescription);
     setIsEditorOpen(false);
@@ -161,13 +169,12 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
                 </div>
               </div>
 
-              {/* 🔴 Updated Description Area (Button Instead of Editor) 🔴 */}
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-1.5">Document Content</label>
                 <button
                   type="button"
                   onClick={() => {
-                    setTempDescription(description); // আগের লেখা থাকলে সেটা এডিটরে পাঠাবে
+                    setTempDescription(description); 
                     setIsEditorOpen(true);
                   }}
                   className={`w-full flex items-center justify-between border rounded-lg px-5 py-4 transition-all ${
@@ -249,7 +256,6 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
         </div>
       )}
       
-      {/* 🔴 Secondary Pop-up: Full Screen Rich Text Editor 🔴 */}
       {isEditorOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8">
           <motion.div
@@ -265,7 +271,6 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden h-full"
           >
-            {/* Editor Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900 shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -282,7 +287,6 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
               </button>
             </div>
 
-            {/* Editor Area */}
             <div className="flex-1 p-6 overflow-y-auto bg-slate-950">
               <div className="rounded-lg overflow-hidden border border-slate-800 h-full shadow-inner">
                 <JoditEditor
@@ -294,7 +298,6 @@ export default function AddDocumentModal({ isOpen, onClose, onAdd, initialData }
               </div>
             </div>
 
-            {/* Editor Footer Actions */}
             <div className="p-6 border-t border-slate-800 bg-slate-900 shrink-0 flex justify-end gap-4">
               <button
                 type="button"
