@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, Filter, Plus, Database, FileText, Tag as TagIcon, X, Loader2, AlertCircle, Wallet, FolderKanban, LogOut } from 'lucide-react';
+import { Search, Filter, Plus, Database, FileText, Tag as TagIcon, X, Loader2, AlertCircle, Wallet, FolderKanban, LogOut, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
 import { DocumentRecord, CATEGORIES } from './types';
@@ -7,14 +7,17 @@ import DocumentCard from './components/DocumentCard';
 import AddDocumentModal from './components/AddDocumentModal';
 import ViewDocumentModal from './components/ViewDocumentModal'; 
 import FinanceDashboard from './components/FinanceDashboard';
-import Auth from './components/Auth'; // 🔴 নতুন Auth কম্পোনেন্ট ইমপোর্ট করা হলো
+import Auth from './components/Auth'; 
 
 export default function App() {
-  const [session, setSession] = useState<any>(null); // 🔴 সেশন স্টেট
+  const [session, setSession] = useState<any>(null); 
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'documents' | 'finance'>('documents');
+
+  // 🔴 মোবাইলের সাইডবার কন্ট্রোল করার জন্য নতুন স্টেট
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<DocumentRecord | null>(null);
@@ -24,7 +27,6 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
-  // 🔴 সেশন চেক করা হচ্ছে
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -34,7 +36,7 @@ export default function App() {
   }, []);
 
   const fetchDocuments = useCallback(async () => {
-    if (!session) return; // লগইন না থাকলে ডেটা আনবে না
+    if (!session) return; 
     setIsLoading(true);
     setError(null);
     try {
@@ -101,6 +103,12 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
+  // 🔴 মেনুতে ক্লিক করার পর মোবাইলের সাইডবার অটোমেটিক হাইড করার ফাংশন
+  const handleNavigation = (action: () => void) => {
+    action();
+    setIsSidebarOpen(false);
+  };
+
   const allTags = useMemo(() => {
     const tags = new Set<string>();
     documents.forEach(doc => {
@@ -123,16 +131,35 @@ export default function App() {
     });
   }, [documents, searchQuery, selectedCategory, selectedTag]);
 
-  // 🔴 লগইন না থাকলে Auth পেজ দেখাবে
   if (!session) {
     return <Auth />;
   }
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-300 overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 relative z-20 shadow-2xl">
-        <div className="p-6 flex-1 overflow-y-auto">
+      
+      {/* 🔴 মোবাইলের জন্য ব্যাকগ্রাউন্ড ওভারলে (সাইডবার ওপেন থাকলে বাইরে ক্লিক করলে বন্ধ হবে) */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-30 lg:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar: 🔴 রেসপন্সিভ ক্লাস যুক্ত করা হয়েছে (lg:relative, fixed, translate-x) */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out transform ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:relative lg:translate-x-0`}>
+        
+        {/* মোবাইলের ক্লোজ বাটন */}
+        <button 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="absolute top-6 right-6 lg:hidden text-slate-400 hover:text-white"
+        >
+          <X size={24} />
+        </button>
+
+        <div className="p-6 flex-1 overflow-y-auto mt-2 lg:mt-0">
           <div className="flex items-center gap-3 mb-8">
             <div className="bg-amber-500 p-2 rounded-xl shadow-lg shadow-amber-500/20">
               <Database className="text-slate-900" size={24} />
@@ -144,7 +171,7 @@ export default function App() {
             <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-3">Main Menu</h2>
             <div className="space-y-1">
               <button
-                onClick={() => setCurrentView('documents')}
+                onClick={() => handleNavigation(() => setCurrentView('documents'))}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   currentView === 'documents' ? 'bg-amber-500/10 text-amber-500 font-bold' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 font-medium'
                 }`}
@@ -153,7 +180,7 @@ export default function App() {
                 <span>Documents</span>
               </button>
               <button
-                onClick={() => setCurrentView('finance')}
+                onClick={() => handleNavigation(() => setCurrentView('finance'))}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                   currentView === 'finance' ? 'bg-amber-500/10 text-amber-500 font-bold' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 font-medium'
                 }`}
@@ -172,7 +199,7 @@ export default function App() {
               {['All', ...CATEGORIES].map(category => (
                 <button
                   key={category}
-                  onClick={() => { setSelectedCategory(category); setCurrentView('documents'); }}
+                  onClick={() => handleNavigation(() => { setSelectedCategory(category); setCurrentView('documents'); })}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     selectedCategory === category ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                   }`}
@@ -195,7 +222,7 @@ export default function App() {
                 {allTags.map(tag => (
                   <button
                     key={tag}
-                    onClick={() => { setSelectedTag(tag === selectedTag ? null : tag); setCurrentView('documents'); }}
+                    onClick={() => handleNavigation(() => { setSelectedTag(tag === selectedTag ? null : tag); setCurrentView('documents'); })}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                       selectedTag === tag ? 'bg-amber-500 text-slate-900 border-amber-500' : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-slate-200'
                     }`}
@@ -208,7 +235,6 @@ export default function App() {
           )}
         </div>
         
-        {/* 🔴 লগআউট সেকশন */}
         <div className="p-4 border-t border-slate-800">
            <button 
              onClick={handleLogout}
@@ -223,9 +249,20 @@ export default function App() {
       <main className="flex-1 flex flex-col min-w-0 bg-slate-950/50 relative">
         {currentView === 'documents' ? (
           <>
-            <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-6 sticky top-0 z-10">
-              <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
-                <div className="flex-1 max-w-2xl relative group">
+            <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 lg:p-6 sticky top-0 z-10 flex flex-col gap-4">
+              
+              {/* 🔴 মোবাইলের জন্য টপ বার */}
+              <div className="flex lg:hidden items-center justify-between w-full">
+                 <div className="flex items-center gap-3">
+                   <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
+                      <Menu size={24} />
+                   </button>
+                   <h1 className="text-xl font-black text-white tracking-tight">Digital<span className="text-amber-500">Index</span></h1>
+                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto w-full">
+                <div className="flex-1 max-w-2xl relative group hidden sm:block">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Search className="h-5 w-5 text-slate-500 group-focus-within:text-amber-500 transition-colors" />
                   </div>
@@ -242,21 +279,34 @@ export default function App() {
                     </button>
                   )}
                 </div>
+
+                {/* মোবাইলের জন্য শুধু সার্চ আইকনসহ ইনপুট */}
+                <div className="flex-1 relative sm:hidden">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-all"
+                  />
+                </div>
+
                 <button
                   onClick={() => { setEditingDoc(null); setIsModalOpen(true); }}
-                  className="bg-amber-500 text-slate-900 px-6 py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-amber-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20 whitespace-nowrap"
+                  className="bg-amber-500 text-slate-900 px-4 sm:px-6 py-3 sm:py-3.5 rounded-xl font-bold flex items-center gap-2 hover:bg-amber-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20 whitespace-nowrap"
                 >
                   <Plus size={20} />
-                  New Document
+                  <span className="hidden sm:inline">New Document</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6">
               <div className="max-w-7xl mx-auto">
                 {(selectedCategory !== 'All' || selectedTag) && (
-                  <div className="flex items-center gap-2 mb-6">
-                    <span className="text-sm text-slate-500">Filtered by:</span>
+                  <div className="flex items-center flex-wrap gap-2 mb-6">
+                    <span className="text-sm text-slate-500 w-full sm:w-auto">Filtered by:</span>
                     {selectedCategory !== 'All' && (
                       <span className="bg-slate-800 text-slate-300 px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2 border border-slate-700">
                         <Filter size={14} /> {selectedCategory}
@@ -287,7 +337,7 @@ export default function App() {
                     </button>
                   </div>
                 ) : filteredDocuments.length > 0 ? (
-                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
                     <AnimatePresence>
                       {filteredDocuments.map(doc => (
                         <DocumentCard
@@ -314,8 +364,18 @@ export default function App() {
             </div>
           </>
         ) : (
-          <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-200">
-            <FinanceDashboard />
+          <div className="flex-1 flex flex-col min-w-0 bg-slate-950 text-slate-200">
+            {/* 🔴 ফাইন্যান্স ড্যাশবোর্ডের জন্য মোবাইলের টপ বার */}
+            <div className="flex lg:hidden items-center p-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
+               <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg mr-4">
+                  <Menu size={24} />
+               </button>
+               <h1 className="text-xl font-bold text-white">Finance Dashboard</h1>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              <FinanceDashboard />
+            </div>
           </div>
         )}
       </main>
