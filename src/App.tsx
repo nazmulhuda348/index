@@ -16,9 +16,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<'documents' | 'finance'>('documents');
 
-  // 🔴 মোবাইলের সাইডবার কন্ট্রোল করার জন্য নতুন স্টেট
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<DocumentRecord | null>(null);
   const [viewingDoc, setViewingDoc] = useState<DocumentRecord | null>(null);
@@ -66,15 +64,24 @@ export default function App() {
         const { error } = await supabase.from('documents').update(docData).eq('id', editingDoc.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('documents').insert([docData]);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const newDocData = {
+          ...docData,
+          ref_number: `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
+          user_id: session?.user?.id
+        };
+
+        const { error } = await supabase.from('documents').insert([newDocData]);
         if (error) throw error;
       }
+      
       await fetchDocuments();
       setIsModalOpen(false);
       setEditingDoc(null);
     } catch (error: any) {
       console.error('Error saving document:', error);
-      alert('Failed to save document.');
+      alert(`ডেটা সেভ করতে সমস্যা হয়েছে: ${error.message || 'Unknown error'}`); 
     }
   };
 
@@ -103,7 +110,6 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // 🔴 মেনুতে ক্লিক করার পর মোবাইলের সাইডবার অটোমেটিক হাইড করার ফাংশন
   const handleNavigation = (action: () => void) => {
     action();
     setIsSidebarOpen(false);
@@ -136,9 +142,9 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-300 overflow-hidden font-sans">
+    // 🔴 ফিক্স: h-screen এর বদলে h-[100dvh] এবং overscroll-none দেওয়া হয়েছে 🔴
+    <div className="flex h-[100dvh] bg-slate-950 text-slate-300 overflow-hidden font-sans overscroll-none">
       
-      {/* 🔴 মোবাইলের জন্য ব্যাকগ্রাউন্ড ওভারলে (সাইডবার ওপেন থাকলে বাইরে ক্লিক করলে বন্ধ হবে) */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-30 lg:hidden" 
@@ -146,12 +152,10 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar: 🔴 রেসপন্সিভ ক্লাস যুক্ত করা হয়েছে (lg:relative, fixed, translate-x) */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-slate-900 border-r border-slate-800 flex flex-col shadow-2xl transition-transform duration-300 ease-in-out transform ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:relative lg:translate-x-0`}>
         
-        {/* মোবাইলের ক্লোজ বাটন */}
         <button 
           onClick={() => setIsSidebarOpen(false)} 
           className="absolute top-6 right-6 lg:hidden text-slate-400 hover:text-white"
@@ -245,13 +249,10 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 bg-slate-950/50 relative">
         {currentView === 'documents' ? (
           <>
             <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4 lg:p-6 sticky top-0 z-10 flex flex-col gap-4">
-              
-              {/* 🔴 মোবাইলের জন্য টপ বার */}
               <div className="flex lg:hidden items-center justify-between w-full">
                  <div className="flex items-center gap-3">
                    <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg">
@@ -280,7 +281,6 @@ export default function App() {
                   )}
                 </div>
 
-                {/* মোবাইলের জন্য শুধু সার্চ আইকনসহ ইনপুট */}
                 <div className="flex-1 relative sm:hidden">
                   <input
                     type="text"
@@ -302,7 +302,8 @@ export default function App() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6">
+            {/* 🔴 ফিক্স: overscroll-contain যুক্ত করা হয়েছে 🔴 */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-6 overscroll-contain">
               <div className="max-w-7xl mx-auto">
                 {(selectedCategory !== 'All' || selectedTag) && (
                   <div className="flex items-center flex-wrap gap-2 mb-6">
@@ -358,6 +359,19 @@ export default function App() {
                     </div>
                     <h3 className="text-xl font-bold text-slate-300 mb-2">No Documents Found</h3>
                     <p className="text-slate-500 max-w-xs">Try adjusting your search or filters to find what you're looking for.</p>
+                    {(searchQuery || selectedCategory !== 'All' || selectedTag) && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedCategory('All');
+                          setSelectedTag(null);
+                        }}
+                        className="mt-6 text-amber-500 hover:text-amber-400 font-bold flex items-center gap-2 transition-colors"
+                      >
+                        <X size={18} />
+                        Clear all filters
+                      </button>
+                    )}
                   </motion.div>
                 )}
               </div>
@@ -365,7 +379,6 @@ export default function App() {
           </>
         ) : (
           <div className="flex-1 flex flex-col min-w-0 bg-slate-950 text-slate-200">
-            {/* 🔴 ফাইন্যান্স ড্যাশবোর্ডের জন্য মোবাইলের টপ বার */}
             <div className="flex lg:hidden items-center p-4 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
                <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg mr-4">
                   <Menu size={24} />
@@ -373,7 +386,8 @@ export default function App() {
                <h1 className="text-xl font-bold text-white">Finance Dashboard</h1>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            {/* 🔴 ফিক্স: overscroll-contain যুক্ত করা হয়েছে 🔴 */}
+            <div className="flex-1 overflow-y-auto overscroll-contain">
               <FinanceDashboard />
             </div>
           </div>
